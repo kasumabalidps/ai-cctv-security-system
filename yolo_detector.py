@@ -7,7 +7,6 @@ import logging
 from typing import List, Dict, Optional, Tuple
 import os
 
-# Import YOLO with error handling
 try:
     from ultralytics import YOLO
     import torch
@@ -36,7 +35,6 @@ class OptimizedYOLODetector:
         self.show_labels = YOLO_CONFIG['show_labels']
         self.show_confidence = YOLO_CONFIG['show_confidence']
 
-        # Hardware configuration
         self.hardware_config = HARDWARE_CONFIG
         self.perf_config = get_active_performance_config()
         self.yolo_hw_config = get_yolo_config_for_hardware()
@@ -44,41 +42,34 @@ class OptimizedYOLODetector:
         self.device = 'cpu'
         self.gpu_info = None
 
-        # Performance optimizations
         self.detection_interval = YOLO_CONFIG.get('detection_interval', 3)
         self.frame_counter = {}
         self.async_detection = YOLO_CONFIG.get('async_detection', True)
         self.max_detections = YOLO_CONFIG.get('max_detections', 10)
 
-        # Async processing
         self.detection_queue = queue.Queue(maxsize=10)
         self.result_cache = {}
         self.cache_timeout = 0.5
 
-        # Anti-spam system for static objects
         anti_spam_config = YOLO_CONFIG.get('anti_spam', {})
         self.anti_spam_enabled = anti_spam_config.get('enabled', True)
-        self.object_tracker = {}  # Track object positions per camera
-        self.alert_cooldown = {}  # Cooldown per object type per camera
-        self.movement_threshold = anti_spam_config.get('movement_threshold', 50)  # Pixels movement to trigger new alert
-        self.static_object_timeout = anti_spam_config.get('static_object_timeout', 300)  # 5 minutes before re-alerting static objects
-        self.alert_spam_cooldown = anti_spam_config.get('alert_spam_cooldown', 30)  # 30 seconds cooldown for same object type
-        self.cleanup_interval = anti_spam_config.get('cleanup_interval', 600)  # 10 minutes cleanup
+        self.object_tracker = {}
+        self.alert_cooldown = {}
+        self.movement_threshold = anti_spam_config.get('movement_threshold', 50)
+        self.static_object_timeout = anti_spam_config.get('static_object_timeout', 300)
+        self.alert_spam_cooldown = anti_spam_config.get('alert_spam_cooldown', 30)
+        self.cleanup_interval = anti_spam_config.get('cleanup_interval', 600)
 
-        # Threading for async detection
         self.detection_thread = None
         self.running = False
 
-        # Load model and configure hardware
         self.setup_hardware()
         self.load_model()
 
-        # Start async detection thread if enabled
         if self.async_detection and self.is_model_loaded():
             self.start_async_detection()
 
     def setup_hardware(self):
-        """Setup hardware configuration (GPU/CPU)"""
         logger.info("🔧 Configuring hardware for YOLO detection...")
 
         if self.hardware_config.get('force_cpu', False):
@@ -482,11 +473,30 @@ class OptimizedYOLODetector:
 
                     # Enhanced background for night mode
                     bg_alpha = 0.8 if night_mode else 0.7
-                    label_bg = frame[y1-label_height-8:y1, x1:x1+label_width+8].copy()
-                    overlay = np.zeros_like(label_bg)
-                    overlay[:] = color
-                    cv2.addWeighted(label_bg, 1-bg_alpha, overlay, bg_alpha, 0, label_bg)
-                    frame[y1-label_height-8:y1, x1:x1+label_width+8] = label_bg
+
+                    # Safe array slicing with bounds checking
+                    y_start = max(0, y1-label_height-8)
+                    y_end = min(frame.shape[0], y1)
+                    x_start = max(0, x1)
+                    x_end = min(frame.shape[1], x1+label_width+8)
+
+                    # Only proceed if we have valid dimensions
+                    if y_end > y_start and x_end > x_start:
+                        label_bg = frame[y_start:y_end, x_start:x_end].copy()
+
+                        # Ensure label_bg is not empty
+                        if label_bg.size > 0 and len(label_bg.shape) == 3:
+                            overlay = np.zeros_like(label_bg)
+                            overlay[:] = color
+
+                            # Safe addWeighted with error handling
+                            try:
+                                cv2.addWeighted(label_bg, 1-bg_alpha, overlay, bg_alpha, 0, label_bg)
+                                frame[y_start:y_end, x_start:x_end] = label_bg
+                            except Exception as e:
+                                logger.debug(f"Label background blend failed: {e}")
+                                # Fallback: simple rectangle
+                                cv2.rectangle(frame, (x_start, y_start), (x_end, y_end), color, -1)
 
                     # Brighter text for night mode
                     text_color = (255, 255, 255) if night_mode else (255, 255, 255)

@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Professional Home Security System - Auto Setup Script
-Automatic configuration and installation helper
-"""
 
 import os
 import sys
@@ -12,7 +8,6 @@ import logging
 from typing import Dict, List
 import platform
 
-# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -26,7 +21,6 @@ class SecuritySystemSetup:
         print("=" * 60)
 
     def check_python_version(self):
-        """Check Python version compatibility"""
         print("📋 Checking Python version...")
 
         version = sys.version_info
@@ -39,15 +33,12 @@ class SecuritySystemSetup:
         return True
 
     def install_dependencies(self):
-        """Install required Python packages"""
         print("\n📦 Installing dependencies...")
 
         try:
-            # Upgrade pip first
             subprocess.run([self.python_executable, "-m", "pip", "install", "--upgrade", "pip"],
                           check=True, capture_output=True)
 
-            # Install requirements
             requirements_file = os.path.join(self.project_dir, "requirements.txt")
             if os.path.exists(requirements_file):
                 subprocess.run([self.python_executable, "-m", "pip", "install", "-r", requirements_file],
@@ -63,7 +54,6 @@ class SecuritySystemSetup:
             return False
 
     def check_gpu_support(self):
-        """Check for GPU support"""
         print("\n🎮 Checking GPU support...")
 
         try:
@@ -83,7 +73,6 @@ class SecuritySystemSetup:
             return False
 
     def create_directories(self):
-        """Create necessary directories"""
         print("\n📁 Creating directories...")
 
         directories = [
@@ -102,7 +91,6 @@ class SecuritySystemSetup:
         return True
 
     def setup_camera_config(self):
-        """Interactive camera configuration"""
         print("\n📹 Camera Configuration")
         print("-" * 30)
 
@@ -111,22 +99,18 @@ class SecuritySystemSetup:
         zones = ["entry", "perimeter", "perimeter", "outdoor"]
         priorities = ["critical", "high", "critical", "medium"]
 
-        # Ask for IP address
         while True:
             ip = input("Enter camera/NVR IP address (e.g., 192.168.1.108): ").strip()
             if ip:
                 break
             print("❌ Please enter a valid IP address")
 
-        # Ask for credentials
         username = input("Enter username (default: admin): ").strip() or "admin"
         password = input("Enter password (default: admin123): ").strip() or "admin123"
 
-        # Configure cameras
         for i in range(4):
             print(f"\n📷 Configuring Camera {i+1}: {camera_names[i]}")
 
-            # Ask if user wants to configure this camera
             configure = input(f"Configure {camera_names[i]}? (y/n, default: y): ").strip().lower()
             if configure in ['n', 'no']:
                 continue
@@ -159,7 +143,6 @@ class SecuritySystemSetup:
             'telegram_bot': {'enabled': False}
         }
 
-        # Email configuration
         email_setup = input("Setup email alerts? (y/n, default: n): ").strip().lower()
         if email_setup in ['y', 'yes']:
             print("\n📧 Email Alert Configuration:")
@@ -180,7 +163,6 @@ class SecuritySystemSetup:
             else:
                 print("⚠️ Email configuration skipped - incomplete information")
 
-        # Telegram configuration
         telegram_setup = input("\nSetup Telegram alerts? (y/n, default: n): ").strip().lower()
         if telegram_setup in ['y', 'yes']:
             print("\n📱 Telegram Bot Configuration:")
@@ -188,7 +170,6 @@ class SecuritySystemSetup:
             chat_id = input("Enter your chat ID: ").strip()
 
             if bot_token and chat_id:
-                # Additional Telegram options
                 send_video = input("Send video recordings to Telegram? (y/n, default: y): ").strip().lower()
                 send_video = send_video not in ['n', 'no']
 
@@ -330,7 +311,6 @@ ZONE_COLORS = {{
         print("\n🔧 Testing system components...")
 
         try:
-            # Test imports
             print("Testing imports...")
             import cv2
             print(f"✅ OpenCV {cv2.__version__}")
@@ -346,10 +326,9 @@ ZONE_COLORS = {{
                 subprocess.run([self.python_executable, "-m", "pip", "install", "ultralytics"], check=True)
                 print("✅ Ultralytics installed")
 
-            # Test YOLO model download
             print("Testing YOLO model...")
             from ultralytics import YOLO
-            model = YOLO('yolov8n.pt')  # This will download if needed
+            model = YOLO('yolov8n.pt')
             print("✅ YOLOv8n model ready")
 
             return True

@@ -1,16 +1,16 @@
-# Professional Home Security System Configuration
+import os
 import pytz
+from dotenv import load_dotenv
 
-# ==================== TIMEZONE CONFIGURATION ====================
-TIMEZONE = pytz.timezone('Asia/Jakarta')  # WIB (Western Indonesia Time)
+load_dotenv()
 
-# ==================== CAMERA CONFIGURATION ====================
+TIMEZONE = pytz.timezone('Asia/Jakarta')
 CAMERAS_CONFIG = [
     {
         'id': '1',
-        'ip': '192.168.1.108',
-        'username': 'admin',
-        'password': 'admin123',
+        'ip': os.getenv('CAMERA_IP', '192.168.1.108'),
+        'username': os.getenv('CAMERA_USERNAME', 'admin'),
+        'password': os.getenv('CAMERA_PASSWORD', 'admin123'),
         'channel': 1,
         'name': 'Halaman Kost',
         'security_zone': 'entry',
@@ -19,9 +19,9 @@ CAMERAS_CONFIG = [
     },
     {
         'id': '2',
-        'ip': '192.168.1.108',
-        'username': 'admin',
-        'password': 'admin123',
+        'ip': os.getenv('CAMERA_IP', '192.168.1.108'),
+        'username': os.getenv('CAMERA_USERNAME', 'admin'),
+        'password': os.getenv('CAMERA_PASSWORD', 'admin123'),
         'channel': 2,
         'name': 'Gerbang Kost',
         'security_zone': 'perimeter',
@@ -30,9 +30,9 @@ CAMERAS_CONFIG = [
     },
     {
         'id': '3',
-        'ip': '192.168.1.108',
-        'username': 'admin',
-        'password': 'admin123',
+        'ip': os.getenv('CAMERA_IP', '192.168.1.108'),
+        'username': os.getenv('CAMERA_USERNAME', 'admin'),
+        'password': os.getenv('CAMERA_PASSWORD', 'admin123'),
         'channel': 3,
         'name': 'Gerbang Rumah',
         'security_zone': 'perimeter',
@@ -41,9 +41,9 @@ CAMERAS_CONFIG = [
     },
     {
         'id': '4',
-        'ip': '192.168.1.108',
-        'username': 'admin',
-        'password': 'admin123',
+        'ip': os.getenv('CAMERA_IP', '192.168.1.108'),
+        'username': os.getenv('CAMERA_USERNAME', 'admin'),
+        'password': os.getenv('CAMERA_PASSWORD', 'admin123'),
         'channel': 4,
         'name': 'Halaman Rumah',
         'security_zone': 'outdoor',
@@ -52,7 +52,6 @@ CAMERAS_CONFIG = [
     }
 ]
 
-# ==================== HARDWARE CONFIGURATION ====================
 HARDWARE_CONFIG = {
     'use_gpu': True,
     'gpu_device': 0,
@@ -75,12 +74,11 @@ HARDWARE_CONFIG = {
     }
 }
 
-# ==================== YOLO DETECTION CONFIGURATION ====================
 YOLO_CONFIG = {
     'model_path': 'yolov8l.pt',
-    'confidence_threshold': 0.55,  # Pagi/Siang: deteksi maksimal, false positive rendah
-    'confidence_threshold_night': 0.65,  # Malam (IR): menghindari bayangan/pantulan
-    'confidence_threshold_24h': 0.6,  # Aman all day - trade-off terbaik
+    'confidence_threshold': 0.65,  # Lebih tinggi untuk mengurangi false positive
+    'confidence_threshold_night': 0.75,  # Lebih tinggi untuk malam
+    'confidence_threshold_24h': 0.7,  # Lebih tinggi untuk all day
     'nms_threshold': 0.45,
     'detection_enabled': True,
     'async_detection': False,
@@ -89,16 +87,39 @@ YOLO_CONFIG = {
     'auto_night_mode': True,
 
     'detection_classes': ['person', 'car', 'motorcycle', 'bicycle', 'bus', 'truck', 'cat', 'dog'],
-    'alert_classes': ['person', 'car', 'motorcycle'],
-    'max_detections': 15,
-    'detection_interval': 1,
+    'alert_classes': ['person'],
+
+    'zone_alert_classes': {
+        'entry': ['person'],
+        'perimeter': ['person'],
+        'outdoor': ['person'],
+        'indoor': ['person'],
+    },
+
+    'max_detections': 10,
+    'detection_interval': 2,
 
     'anti_spam': {
         'enabled': True,
-        'movement_threshold': 50,
-        'static_object_timeout': 300,
-        'alert_spam_cooldown': 30,
-        'cleanup_interval': 600
+        'movement_threshold': 80,
+        'static_object_timeout': 180,
+        'alert_spam_cooldown': 120,
+        'same_detection_cooldown': 300,
+        'cleanup_interval': 300,
+        'max_alerts_per_hour': 20,
+        'max_alerts_per_day': 200,
+
+        'cross_camera_dedup': {
+            'enabled': True,
+            'time_window': 45,
+            'similar_cameras': {
+                'gerbang': ['Gerbang Rumah', 'Gerbang Kost'],
+                'halaman': ['Halaman Depan', 'Halaman Kost', 'Teras Depan'],
+                'parkir': ['Parkir Mobil', 'Garasi', 'Area Parkir'],
+                'entrance': ['Pintu Masuk', 'Gerbang Utama', 'Entry Point'],
+                'backyard': ['Halaman Belakang', 'Taman Belakang', 'Area Belakang']
+            }
+        }
     },
 
     'gpu_settings': {
@@ -114,38 +135,36 @@ YOLO_CONFIG = {
     }
 }
 
-# ==================== PERFORMANCE CONFIGURATION ====================
 PERFORMANCE_CONFIG = {
     'gpu_profile': {
         'target_fps': 20,
-        'detection_fps': 10,
-        'frame_skip_detection': 2,
+        'detection_fps': 8,
+        'frame_skip_detection': 3,
         'buffer_size': 1,
-        'thread_pool_size': 6,
+        'thread_pool_size': 4,
         'memory_optimization': True,
         'prefetch_frames': True,
     },
 
     'cpu_profile': {
         'target_fps': 15,
-        'detection_fps': 5,
-        'frame_skip_detection': 3,
+        'detection_fps': 4,
+        'frame_skip_detection': 4,
         'buffer_size': 1,
-        'thread_pool_size': 4,
+        'thread_pool_size': 2,
         'memory_optimization': True,
         'prefetch_frames': False,
     }
 }
 
-# ==================== SECURITY CONFIGURATION ====================
 SECURITY_CONFIG = {
     'armed': True,
-    'sensitivity': 'high',
-    'alert_cooldown': 30,
-    'recording_duration': 30,
+    'sensitivity': 'medium',
+    'alert_cooldown': 120,
+    'recording_duration': 20,
     'backup_alerts': True,
     'continuous_recording': False,
-    'motion_sensitivity': 0.4,
+    'motion_sensitivity': 0.3,
     'night_mode': True,
     'auto_enable_detection': True,
     'force_armed_on_startup': True,
@@ -162,122 +181,111 @@ SECURITY_CONFIG = {
 ALERT_CONFIG = {
     'email_alerts': {
         'enabled': False,
-        'smtp_server': 'smtp.gmail.com',
-        'smtp_port': 587,
-        'email': 'your-email@gmail.com',
-        'password': 'your-app-password',
-        'recipients': ['security@yourdomain.com']
+        'smtp_server': os.getenv('EMAIL_SMTP_SERVER', 'smtp.gmail.com'),
+        'smtp_port': int(os.getenv('EMAIL_SMTP_PORT', 587)),
+        'email': os.getenv('EMAIL_ADDRESS', 'your-email@gmail.com'),
+        'password': os.getenv('EMAIL_PASSWORD', 'your-app-password'),
+        'recipients': os.getenv('EMAIL_RECIPIENTS', 'security@yourdomain.com').split(','),
+        'send_video': False,  # Opsi untuk mengirim video
     },
 
     'sound_alerts': {
         'enabled': True,
         'alert_sound': 'assets/alert.wav',
-        'volume': 0.8
+        'volume': 0.6  # Turunkan dari 0.8 ke 0.6
     },
 
     'telegram_bot': {
         'enabled': True,
-        'bot_token': '8199303892:AAG9gNITebF7Uid9-khQgNK6uWu6NN42TRY',
-        'chat_id': '6398781481',
+        'bot_token': os.getenv('TELEGRAM_BOT_TOKEN', ''),
+        'chat_id': os.getenv('TELEGRAM_CHAT_ID', ''),
         'send_photo': True,
-        'send_video': True,
-        'video_max_size_mb': 48,  # Telegram limit is 50MB, leave margin
-        'video_timeout': 60,      # Timeout for video upload
-        'enhanced_formatting': True
+        'send_video': False,  # DEFAULT: Tidak mengirim video
+        'video_max_size_mb': 48,
+        'video_timeout': 60,
+        'enhanced_formatting': True,
+        'max_photos_per_hour': 10,  # Maksimal 10 foto per jam
+        'max_videos_per_hour': 5,   # Maksimal 5 video per jam
     },
 
     'webhook_alerts': {
-        'enabled': False,
+        'enabled': True,
+        'retry_attempts': 2,  # Turunkan dari 3 ke 2
+        'timeout': 8,  # Turunkan dari 10 ke 8
+        'alert_cooldown': 120,  # Naikkan dari 30 ke 120 detik
         'services': {
             'discord': {
-                'enabled': False,
-                'webhook_url': 'https://discord.com/api/webhooks/1387816647750062202/xXmS7o-JDFd81Zvg78e3s_9aKBIDRcGuCRMEkg_Ywu6Ai0Vje3NBNIiN3xu_vnu4C5b5',
-                'username': 'Security System',
-                'avatar_url': 'https://cdn-icons-png.flaticon.com/512/2913/2913095.png',
-                'mention_role_id': None,  # Optional: Discord role ID to mention
-                'color': 0xff0000,  # Red color for alerts
-                'send_image': True  # Send screenshot with alert
+                'enabled': True,
+                'webhook_url': os.getenv('DISCORD_WEBHOOK_URL', ''),
+                'username': os.getenv('DISCORD_WEBHOOK_USERNAME', 'Security System'),
+                'avatar_url': os.getenv('DISCORD_AVATAR_URL', ''),
+                'mention_role_id': None,
+                'color': 0xff0000,
+                'send_image': True,
+                'send_video': False,  # DEFAULT: Tidak mengirim video
+                'max_images_per_hour': 15,  # Maksimal 15 gambar per jam
+                'max_videos_per_hour': 5,   # Maksimal 5 video per jam
             },
             'slack': {
                 'enabled': False,
-                'webhook_url': 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK',
-                'channel': '#security-alerts',
-                'username': 'Security Bot',
-                'icon_emoji': ':warning:',
-                'send_image': True
+                'webhook_url': os.getenv('SLACK_WEBHOOK_URL', ''),
+                'username': 'Security System',
+                'channel': '#security',
+                'send_image': True,
+                'send_video': False,
             },
             'teams': {
                 'enabled': False,
-                'webhook_url': 'https://outlook.office.com/webhook/YOUR_TEAMS_WEBHOOK',
-                'title': 'Security Alert',
-                'theme_color': 'FF0000',
-                'send_image': False  # Teams has limited image support
+                'webhook_url': os.getenv('TEAMS_WEBHOOK_URL', ''),
+                'send_image': True,
+                'send_video': False,
             },
             'custom': {
                 'enabled': False,
-                'webhook_url': 'https://your-custom-endpoint.com/webhook',
-                'method': 'POST',
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer YOUR_TOKEN'
-                },
-                'send_image': True
+                'webhook_url': os.getenv('CUSTOM_WEBHOOK_URL', ''),
+                'token': os.getenv('CUSTOM_WEBHOOK_TOKEN', ''),
+                'send_image': True,
+                'send_video': False,
             }
-        },
-        'retry_attempts': 3,
-        'timeout': 10,
-        'include_screenshot': True,
-        'alert_cooldown': 30  # Seconds between webhook alerts for same detection
-    },
-
-    'push_notifications': {
-        'enabled': False,
-        'service': 'firebase'
+        }
     }
 }
 
 # ==================== DISPLAY CONFIGURATION ====================
 DISPLAY_CONFIG = {
-    'window_width': 1280,
-    'window_height': 720,
-    'full_hd_screenshots': True,
-    'compression_quality': 95,
+    'window_title': 'Professional CCTV Security System',
+    'window_size': (1280, 720),
+    'fullscreen': False,
+    'always_on_top': False,
+    'show_fps': True,
+    'show_detection_info': True,
+    'show_timestamp': True,
+    'grid_color': (50, 50, 50),
+    'text_color': (255, 255, 255),
+    'alert_color': (0, 0, 255),
+    'font_scale': 0.6,
+    'font_thickness': 2,
 
-    'grid_layouts': {
-        '2x2': (640, 360),
-        '1x4': (320, 180),
-        '4x1': (320, 180),
-        '1x1': (1280, 720)
-    },
-
-    'directories': {
-        'screenshots': 'screenshots',
-        'alerts': 'alerts',
-        'recordings': 'recordings',
-        'logs': 'logs'
-    },
-
-    # Legacy support
-    'grid_size_2x2': (640, 360),
-    'grid_size_1x4': (320, 180),
-    'grid_size_4x1': (320, 180),
-    'grid_size_1x1': (1280, 720),
-    'screenshot_dir': 'screenshots',
-    'alerts_dir': 'alerts',
-    'recordings_dir': 'recordings',
-    'logs_dir': 'logs'
+    'layouts': {
+        '2x2': {'rows': 2, 'cols': 2, 'cell_width': 640, 'cell_height': 360},
+        '1x4': {'rows': 1, 'cols': 4, 'cell_width': 320, 'cell_height': 720},
+        '4x1': {'rows': 4, 'cols': 1, 'cell_width': 1280, 'cell_height': 180},
+        '1x1': {'rows': 1, 'cols': 1, 'cell_width': 1280, 'cell_height': 720}
+    }
 }
 
 # ==================== RECORDING CONFIGURATION ====================
 RECORDING_CONFIG = {
     'enabled': True,
     'format': 'mp4',
-    'codec': 'h264',
-    'fps': 15,
-    'resolution': (1280, 720),
-    'max_file_size_mb': 100,
-    'auto_cleanup_days': 30,
-    'backup_to_cloud': False
+    'codec': 'mp4v',
+    'fps': 15,  # Turunkan dari 20 ke 15
+    'quality': 85,  # Turunkan dari 95 ke 85
+    'max_file_size_mb': 100,  # Turunkan dari 200 ke 100
+    'auto_cleanup': True,
+    'cleanup_days': 7,  # Turunkan dari 30 ke 7 hari
+    'max_storage_gb': 5,  # Turunkan dari 10 ke 5 GB
+    'compression_level': 6,  # Naikkan kompresi dari 3 ke 6
 }
 
 # ==================== VISUAL CONFIGURATION ====================
@@ -301,7 +309,7 @@ ZONE_COLORS = {
 
 # ==================== TIMEZONE UTILITIES ====================
 def get_wib_time():
-    """Get current time in WIB (Asia/Jakarta) timezone"""
+    """Get current time in WIB timezone"""
     from datetime import datetime
     return datetime.now(TIMEZONE)
 
@@ -315,18 +323,24 @@ def get_wib_filename_timestamp():
 
 # ==================== UTILITY FUNCTIONS ====================
 def get_active_performance_config():
-    """Get performance configuration based on hardware settings"""
-    if HARDWARE_CONFIG['use_gpu'] and not HARDWARE_CONFIG['force_cpu']:
-        return PERFORMANCE_CONFIG['gpu_profile']
-    else:
-        return PERFORMANCE_CONFIG['cpu_profile']
+    """Get active performance configuration based on hardware"""
+    try:
+        import torch
+        if torch.cuda.is_available() and HARDWARE_CONFIG.get('use_gpu', True):
+            return PERFORMANCE_CONFIG['gpu_profile']
+    except ImportError:
+        pass
+    return PERFORMANCE_CONFIG['cpu_profile']
 
 def get_yolo_config_for_hardware():
-    """Get YOLO configuration based on hardware"""
-    if HARDWARE_CONFIG['use_gpu'] and not HARDWARE_CONFIG['force_cpu']:
-        return YOLO_CONFIG['gpu_settings']
-    else:
-        return YOLO_CONFIG['cpu_settings']
+    """Get YOLO configuration optimized for current hardware"""
+    config = YOLO_CONFIG.copy()
+    perf_config = get_active_performance_config()
+
+    # Update detection interval based on performance
+    config['detection_interval'] = max(1, perf_config['frame_skip_detection'] // 2)
+
+    return config
 
 def get_hardware_info():
     """Get current hardware configuration summary"""
@@ -340,26 +354,27 @@ def get_hardware_info():
 
 def get_display_layout(layout_name):
     """Get display layout configuration"""
-    layouts = {
-        "2x2": {"grid": (2, 2), "size": DISPLAY_CONFIG['grid_layouts']['2x2']},
-        "1x4": {"grid": (1, 4), "size": DISPLAY_CONFIG['grid_layouts']['1x4']},
-        "4x1": {"grid": (4, 1), "size": DISPLAY_CONFIG['grid_layouts']['4x1']},
-        "1x1": {"grid": (1, 1), "size": DISPLAY_CONFIG['grid_layouts']['1x1']}
-    }
-    return layouts.get(layout_name, layouts["2x2"])
+    return DISPLAY_CONFIG['layouts'].get(layout_name, DISPLAY_CONFIG['layouts']['2x2'])
 
 def validate_config():
     """Validate configuration settings"""
     errors = []
 
-    if not CAMERAS_CONFIG:
-        errors.append("No cameras configured")
+    # Validate environment variables
+    required_env_vars = ['CAMERA_IP', 'CAMERA_USERNAME', 'CAMERA_PASSWORD']
+    for var in required_env_vars:
+        if not os.getenv(var):
+            errors.append(f"Missing required environment variable: {var}")
 
-    if HARDWARE_CONFIG['gpu_device'] < 0:
-        errors.append("Invalid GPU device index")
+    # Validate alert services
+    if ALERT_CONFIG['telegram_bot']['enabled']:
+        if not os.getenv('TELEGRAM_BOT_TOKEN') or not os.getenv('TELEGRAM_CHAT_ID'):
+            errors.append("Telegram enabled but missing BOT_TOKEN or CHAT_ID")
 
-    if YOLO_CONFIG['confidence_threshold'] < 0 or YOLO_CONFIG['confidence_threshold'] > 1:
-        errors.append("Invalid confidence threshold")
+    if ALERT_CONFIG['webhook_alerts']['enabled']:
+        discord_config = ALERT_CONFIG['webhook_alerts']['services']['discord']
+        if discord_config['enabled'] and not os.getenv('DISCORD_WEBHOOK_URL'):
+            errors.append("Discord webhook enabled but missing WEBHOOK_URL")
 
     return errors
 
@@ -375,3 +390,14 @@ CONFIG_SUMMARY = {
         ALERT_CONFIG['telegram_bot']['enabled']
     ])
 }
+
+# ==================== HELPER FUNCTIONS ====================
+def get_alert_classes_for_zone(zone: str) -> list:
+    """Get alert classes for specific security zone"""
+    zone_classes = YOLO_CONFIG.get('zone_alert_classes', {})
+    return zone_classes.get(zone, YOLO_CONFIG['alert_classes'])
+
+def should_send_alert(detection_type: str, zone: str) -> bool:
+    """Check if detection should trigger alert based on zone and type"""
+    allowed_classes = get_alert_classes_for_zone(zone)
+    return detection_type in allowed_classes

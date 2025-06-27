@@ -7,12 +7,10 @@ import logging
 import os
 from datetime import datetime
 
-# Import our enhanced modules
-from config import CAMERAS_CONFIG, DISPLAY_CONFIG, YOLO_CONFIG, SECURITY_CONFIG, HARDWARE_CONFIG, get_active_performance_config, get_wib_timestamp, get_wib_filename_timestamp
+from config import CAMERAS_CONFIG, YOLO_CONFIG, SECURITY_CONFIG, HARDWARE_CONFIG, get_active_performance_config, get_wib_timestamp, get_wib_filename_timestamp
 from yolo_detector import OptimizedYOLODetector
 from security_manager import SecurityManager
 
-# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -24,56 +22,45 @@ class ProfessionalSecuritySystem:
         self.current_layout = "2x2"  # Only "2x2" and "1x1" for home security
         self.fullscreen_camera = None
         self.fps_counter = {}
-        self.screenshot_dir = DISPLAY_CONFIG['screenshot_dir']
+        self.screenshot_dir = 'screenshots'
 
         # Performance tracking
         self.frame_times = {}
         self.detection_times = {}
         self.last_fps_update = time.time()
 
-        # Enhanced components
         self.yolo_detector = OptimizedYOLODetector()
         self.security_manager = SecurityManager()
 
-        # FORCE SECURITY FEATURES ALWAYS ON
-        self.detection_enabled = True  # ALWAYS ON for home security
-        self.yolo_detector.detection_enabled = True  # Force YOLO ON
+        self.detection_enabled = True
+        self.yolo_detector.detection_enabled = True
 
-        # Force security system to be armed
         if SECURITY_CONFIG.get('force_armed_on_startup', True):
             self.security_manager.armed = True
 
-        # Force detection to be enabled
         if SECURITY_CONFIG.get('auto_enable_detection', True):
             if self.yolo_detector.is_model_loaded():
                 self.yolo_detector.detection_enabled = True
                 self.detection_enabled = True
 
-        # Hardware configuration
         self.hardware_config = HARDWARE_CONFIG
         self.performance_config = get_active_performance_config()
 
-        # UI state
         self.show_stats = False
         self.show_help = False
         self.night_mode = SECURITY_CONFIG.get('night_mode', False)
 
-        # Create directories
-        for directory in ['screenshot_dir', 'alerts_dir', 'recordings_dir', 'logs_dir']:
-            os.makedirs(DISPLAY_CONFIG[directory], exist_ok=True)
+        for directory in ['screenshots', 'alerts', 'recordings', 'logs']:
+            os.makedirs(directory, exist_ok=True)
 
-        # Log hardware configuration
         self.log_hardware_info()
 
-        # Log security status
         logger.info("🔒 HOME SECURITY MODE - Detection and Security ALWAYS ON")
         logger.info(f"🔒 Security Armed: {self.security_manager.is_armed()}")
         logger.info(f"🤖 Detection Active: {self.detection_enabled and self.yolo_detector.detection_enabled}")
-
         logger.info("Professional Security System initialized")
 
     def log_hardware_info(self):
-        """Log hardware configuration information"""
         hardware_info = self.yolo_detector.get_hardware_info()
 
         logger.info("🔧 Hardware Configuration:")
@@ -90,8 +77,6 @@ class ProfessionalSecuritySystem:
     def add_camera(self, camera_id: str, ip: str, username: str, password: str,
                    port: int = 554, channel: int = 1, name: str = None,
                    security_zone: str = "unknown", priority: str = "medium"):
-        """Add a camera with security configuration"""
-        # Enhanced RTSP URL for Dahua cameras
         rtsp_url = f"rtsp://{username}:{password}@{ip}:{port}/cam/realmonitor?channel={channel}&subtype=0"
 
         self.cameras[camera_id] = {
@@ -118,7 +103,6 @@ class ProfessionalSecuritySystem:
             'night_mode': self.night_mode
         }
 
-        # Initialize counters
         self.fps_counter[camera_id] = 0
         self.frame_times[camera_id] = []
         self.detection_times[camera_id] = []
@@ -126,7 +110,6 @@ class ProfessionalSecuritySystem:
         logger.info(f"Added camera {camera_id} ({name}) - Zone: {security_zone}, Priority: {priority}")
 
     def connect_camera(self, camera_id: str) -> bool:
-        """Connect to camera with enhanced error handling"""
         if camera_id not in self.cameras:
             logger.error(f"Camera {camera_id} not found")
             return False
@@ -139,13 +122,13 @@ class ProfessionalSecuritySystem:
 
             cap = cv2.VideoCapture(camera['url'])
 
-            # Use performance config based on hardware
             cap.set(cv2.CAP_PROP_BUFFERSIZE, self.performance_config['buffer_size'])
             cap.set(cv2.CAP_PROP_FPS, self.performance_config['target_fps'])
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+            cap.set(cv2.CAP_PROP_BITRATE, 10000000)
 
-            # Fast connection test
             ret, frame = cap.read()
             connection_time = time.time() - start_time
 
@@ -167,11 +150,9 @@ class ProfessionalSecuritySystem:
             return False
 
     def camera_thread(self, camera_id: str):
-        """Enhanced camera thread with performance monitoring"""
         camera = self.cameras[camera_id]
         consecutive_failures = 0
         max_failures = 10
-
         detection_frame_counter = 0
 
         while self.running:
@@ -193,15 +174,10 @@ class ProfessionalSecuritySystem:
                 if ret and frame is not None:
                     detection_frame_counter += 1
 
-                    # Enhanced night mode detection based on frame brightness
-                    if detection_frame_counter % 60 == 0:  # Check every 60 frames
+                    if detection_frame_counter % 60 == 0:
                         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                         brightness = np.mean(gray)
-
-                        # IR mode detection with better threshold for Dahua cameras
-                        # IR cameras typically have brightness < 40 (very dark/IR mode)
-                        # Normal day mode has brightness > 80
-                        is_night_mode = brightness < 40  # More accurate threshold for IR detection
+                        is_night_mode = brightness < 40
 
                         if is_night_mode != camera.get('night_mode', False):
                             camera['night_mode'] = is_night_mode
@@ -209,7 +185,6 @@ class ProfessionalSecuritySystem:
                             confidence_used = YOLO_CONFIG.get('confidence_threshold_night', 0.65) if is_night_mode else YOLO_CONFIG.get('confidence_threshold', 0.55)
                             logger.info(f"🌙 {camera['name']}: {mode_text} mode detected (brightness: {brightness:.1f}, confidence: {confidence_used})")
 
-                    # YOLO Detection with performance optimization
                     detection_start = time.time()
 
                     if self.detection_enabled and self.yolo_detector.detection_enabled:
@@ -231,7 +206,6 @@ class ProfessionalSecuritySystem:
 
                             if alert_triggered:
                                 camera['alerts'] = alerts
-                                # Log only when actual alerts are triggered
                                 logger.warning(f"🚨 SECURITY ALERT: {camera['name']} - {len(alerts)} objects detected")
                                 for alert in alerts:
                                     movement_info = f" ({alert.get('movement_type', 'new')})"
@@ -239,16 +213,13 @@ class ProfessionalSecuritySystem:
 
                     detection_time = time.time() - detection_start
 
-                    # Update frame
                     camera['frame'] = frame
                     camera['last_frame_time'] = time.time()
                     consecutive_failures = 0
 
-                    # Performance tracking
                     frame_time = time.time() - frame_start
                     self.update_performance_stats(camera_id, frame_time, detection_time)
 
-                    # Update recordings if active
                     self.security_manager.update_recording(camera_id, frame)
 
                 else:
@@ -269,13 +240,10 @@ class ProfessionalSecuritySystem:
                         camera['cap'].release()
                         camera['cap'] = None
 
-            # Adaptive sleep based on target FPS from performance config
             target_sleep = 1.0 / self.performance_config['target_fps']
             time.sleep(max(0.01, target_sleep))
 
     def update_performance_stats(self, camera_id: str, frame_time: float, detection_time: float):
-        """Update performance statistics"""
-        # Keep last 30 measurements for rolling average
         max_measurements = 30
 
         if len(self.frame_times[camera_id]) >= max_measurements:
@@ -286,7 +254,6 @@ class ProfessionalSecuritySystem:
             self.detection_times[camera_id].pop(0)
         self.detection_times[camera_id].append(detection_time)
 
-        # Calculate FPS
         if self.frame_times[camera_id]:
             avg_frame_time = sum(self.frame_times[camera_id]) / len(self.frame_times[camera_id])
             self.cameras[camera_id]['performance']['avg_fps'] = 1.0 / max(avg_frame_time, 0.001)
@@ -296,20 +263,16 @@ class ProfessionalSecuritySystem:
             self.cameras[camera_id]['performance']['detection_fps'] = 1.0 / max(avg_detection_time, 0.001)
 
     def take_screenshot(self, camera_id: str = None):
-        """Take professional screenshot with WIB timestamp"""
         timestamp = get_wib_filename_timestamp()
 
         if camera_id and camera_id in self.cameras:
-            # Single camera screenshot
             camera = self.cameras[camera_id]
             if camera['frame'] is not None:
-                # Ensure 16:9 aspect ratio
                 frame = cv2.resize(camera['frame'], (1920, 1080))
                 filename = f"{self.screenshot_dir}/HD_{camera['name']}_{timestamp}.jpg"
                 cv2.imwrite(filename, frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
                 logger.info(f"HD Screenshot saved: {filename}")
         else:
-            # Full view screenshot
             display_frame = self.create_display()
             filename = f"{self.screenshot_dir}/FULL_VIEW_{timestamp}.jpg"
             cv2.imwrite(filename, display_frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
@@ -328,7 +291,8 @@ class ProfessionalSecuritySystem:
 
         if camera['frame'] is not None and camera['connected']:
             frame = camera['frame'].copy()
-            frame = cv2.resize(frame, (DISPLAY_CONFIG['window_width'], DISPLAY_CONFIG['window_height']))
+            # HD resize dengan interpolation terbaik
+            frame = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_LANCZOS4)
 
             # Transparent overlay on top of video (not cutting the video)
             overlay = frame.copy()
@@ -355,13 +319,20 @@ class ProfessionalSecuritySystem:
             if camera['alerts']:
                 cv2.circle(overlay, (frame.shape[1] - 80, 30), 8, (0, 0, 255), -1)
 
-            # Blend overlay with original frame (transparent effect)
-            result = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
+            # Safe blend overlay with original frame (transparent effect)
+            try:
+                if frame.shape == overlay.shape and frame.dtype == overlay.dtype:
+                    result = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
+                else:
+                    result = frame  # Fallback if shapes don't match
+            except Exception as e:
+                logger.debug(f"Overlay blend failed: {e}")
+                result = frame
 
             return result
         else:
             # Clean disconnected view
-            frame = np.zeros((DISPLAY_CONFIG['window_height'], DISPLAY_CONFIG['window_width'], 3), dtype=np.uint8)
+            frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
             frame[:] = (20, 20, 20)
 
             cv2.putText(frame, camera['name'], (50, frame.shape[0]//2 - 30),
@@ -399,38 +370,52 @@ class ProfessionalSecuritySystem:
             camera = self.cameras[camera_id]
 
             if camera['frame'] is not None and camera['connected']:
-                # Optimized frame processing
-                frame = cv2.resize(camera['frame'], cell_size)
+                # HD frame processing dengan interpolation terbaik
+                frame = cv2.resize(camera['frame'], cell_size, interpolation=cv2.INTER_LANCZOS4)
                 overlay = frame.copy()
 
-                # Header bar
-                cv2.rectangle(overlay, (0, 0), (cell_size[0], 30), (0, 0, 0), -1)
+                # Header bar yang lebih besar
+                header_height = int(cell_size[1] * 0.08)  # 8% dari tinggi cell
+                cv2.rectangle(overlay, (0, 0), (cell_size[0], header_height), (0, 0, 0), -1)
 
-                # Camera name
-                cv2.putText(overlay, camera['name'], (8, 20),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                # Camera name dengan font yang lebih besar dan crisp
+                font_scale = max(0.7, cell_size[0] / 1200)  # Dynamic font scaling
+                cv2.putText(overlay, camera['name'], (12, int(header_height * 0.7)),
+                           cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 2)
 
-                # Status indicators - optimized positioning
+                # Status indicators - HD positioning
+                indicator_size = max(4, int(cell_size[0] / 200))  # Dynamic indicator size
                 status_color = (0, 150, 0) if is_armed else (80, 80, 80)
-                cv2.circle(overlay, (cell_size[0] - 15, 15), 3, status_color, -1)
+                cv2.circle(overlay, (cell_size[0] - 20, int(header_height/2)), indicator_size, status_color, -1)
 
                 if camera['alerts']:
-                    cv2.circle(overlay, (cell_size[0] - 30, 15), 3, (0, 0, 200), -1)
+                    cv2.circle(overlay, (cell_size[0] - 40, int(header_height/2)), indicator_size, (0, 0, 200), -1)
 
-                # Timestamp - cached
-                cv2.putText(overlay, timestamp, (cell_size[0] - 65, 20),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200, 200, 200), 1)
+                # Timestamp - cached dengan font yang lebih besar
+                timestamp_font_scale = max(0.4, cell_size[0] / 1500)
+                cv2.putText(overlay, timestamp, (cell_size[0] - 100, int(header_height * 0.7)),
+                           cv2.FONT_HERSHEY_SIMPLEX, timestamp_font_scale, (200, 200, 200), 2)
 
-                # IR indicator - optimized
+                # IR indicator - HD optimized
                 ir_color = (0, 255, 0) if camera.get('night_mode', False) else (0, 0, 255)
-                ir_y = cell_size[1] - 10
-                cv2.rectangle(overlay, (cell_size[0] - 35, ir_y - 15),
-                             (cell_size[0] - 5, ir_y), (0, 0, 0), -1)
-                cv2.putText(overlay, "IR", (cell_size[0] - 30, ir_y - 5),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, ir_color, 1)
+                ir_y = cell_size[1] - 15
+                ir_width = max(45, int(cell_size[0] / 20))
+                ir_height = max(20, int(cell_size[1] / 25))
+                cv2.rectangle(overlay, (cell_size[0] - ir_width, ir_y - ir_height),
+                             (cell_size[0] - 8, ir_y), (0, 0, 0), -1)
+                ir_font_scale = max(0.5, cell_size[0] / 1600)
+                cv2.putText(overlay, "IR", (cell_size[0] - ir_width + 8, ir_y - 8),
+                           cv2.FONT_HERSHEY_SIMPLEX, ir_font_scale, ir_color, 2)
 
-                # Efficient blending
-                frame_with_overlay = cv2.addWeighted(frame, 0.8, overlay, 0.2, 0)
+                # Safe efficient blending
+                try:
+                    if frame.shape == overlay.shape and frame.dtype == overlay.dtype:
+                        frame_with_overlay = cv2.addWeighted(frame, 0.8, overlay, 0.2, 0)
+                    else:
+                        frame_with_overlay = frame  # Fallback if shapes don't match
+                except Exception as e:
+                    logger.debug(f"Grid overlay blend failed: {e}")
+                    frame_with_overlay = frame
             else:
                 # Optimized disconnected view
                 frame_with_overlay = np.full((cell_size[1], cell_size[0], 3), 15, dtype=np.uint8)
@@ -446,10 +431,10 @@ class ProfessionalSecuritySystem:
         return grid
 
     def get_layout_config(self):
-        """Get layout configuration - Only 2x2 and 1x1 for home security"""
+        """Get layout configuration - HD quality layouts"""
         layouts = {
-            "2x2": {"grid": (2, 2), "size": DISPLAY_CONFIG['grid_size_2x2']},
-            "1x1": {"grid": (1, 1), "size": DISPLAY_CONFIG['grid_size_1x1']}
+            "2x2": {"grid": (2, 2), "size": (960, 540)},  # Upgrade dari 640x360 ke 960x540 (1.5x)
+            "1x1": {"grid": (1, 1), "size": (1920, 1080)}  # Upgrade ke Full HD
         }
         return layouts.get(self.current_layout, layouts["2x2"])
 
@@ -460,8 +445,8 @@ class ProfessionalSecuritySystem:
                 # Enter fullscreen
                 layout = self.get_layout_config()
                 grid_rows, grid_cols = layout["grid"]
-                cell_width = DISPLAY_CONFIG['window_width'] // grid_cols
-                cell_height = DISPLAY_CONFIG['window_height'] // grid_rows
+                cell_width = 1920 // grid_cols  # Update untuk HD resolution
+                cell_height = 1080 // grid_rows
 
                 clicked_col = x // cell_width
                 clicked_row = y // cell_height
@@ -476,33 +461,33 @@ class ProfessionalSecuritySystem:
                 self.fullscreen_camera = None
 
     def display_loop(self):
-        """Enhanced display loop with clean professional controls"""
+        """Enhanced display loop with HD quality"""
         cv2.namedWindow('Professional Security System', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Professional Security System',
-                        DISPLAY_CONFIG['window_width'], DISPLAY_CONFIG['window_height'])
+        # Upgrade to Full HD resolution for crisp display
+        cv2.resizeWindow('Professional Security System', 1920, 1080)
         cv2.setMouseCallback('Professional Security System', self.mouse_callback)
 
         while self.running:
             display_frame = self.create_display()
 
-                        # Clean organized status bar only for grid view
+            # HD Status bar untuk grid view
             if self.fullscreen_camera is None:
-                status_height = 35
+                status_height = 50  # Tinggi status bar lebih besar
                 status_bar = np.zeros((status_height, display_frame.shape[1], 3), dtype=np.uint8)
                 status_bar[:] = (30, 30, 30)  # Clean dark background
 
                 # LEFT SECTION - Security Status (Most Important)
-                x_pos = 15
+                x_pos = 20
 
-                # Security Armed Status
+                # Security Armed Status dengan font lebih besar
                 armed_color = (0, 180, 0) if self.security_manager.is_armed() else (255, 0, 0)
                 armed_text = "ARMED" if self.security_manager.is_armed() else "DISARMED"
-                cv2.circle(status_bar, (x_pos, 18), 8, armed_color, -1)
-                cv2.putText(status_bar, armed_text, (x_pos + 15, 22),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, armed_color, 2)
-                x_pos += 120
+                cv2.circle(status_bar, (x_pos, 25), 10, armed_color, -1)  # Circle lebih besar
+                cv2.putText(status_bar, armed_text, (x_pos + 20, 32),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, armed_color, 2)  # Font lebih besar
+                x_pos += 150
 
-                                # AI Detection Status
+                # AI Detection Status dengan font lebih besar
                 if self.detection_enabled and self.yolo_detector.detection_enabled:
                     det_color = (0, 180, 0)
                     det_text = "AI ACTIVE"
@@ -510,28 +495,28 @@ class ProfessionalSecuritySystem:
                     det_color = (255, 0, 0)
                     det_text = "AI OFF!"
 
-                cv2.circle(status_bar, (x_pos, 18), 8, det_color, -1)
-                cv2.putText(status_bar, det_text, (x_pos + 15, 22),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, det_color, 2)
-                x_pos += 100
+                cv2.circle(status_bar, (x_pos, 25), 10, det_color, -1)  # Circle lebih besar
+                cv2.putText(status_bar, det_text, (x_pos + 20, 32),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, det_color, 2)  # Font lebih besar
+                x_pos += 130
 
                 # IR indicator removed from status bar - now individual per camera
 
-                # CENTER SECTION - System Info
-                center_x = display_frame.shape[1] // 2 - 100
+                # CENTER SECTION - System Info dengan font HD
+                center_x = display_frame.shape[1] // 2 - 150
 
-                # Layout Mode
+                # Layout Mode dengan font lebih besar
                 layout_text = "ALL CAMERAS" if self.current_layout == "2x2" else "SINGLE CAM"
-                cv2.putText(status_bar, layout_text, (center_x, 22),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, (150, 150, 150), 1)
+                cv2.putText(status_bar, layout_text, (center_x, 32),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 2)
 
-                # Hardware Mode
+                # Hardware Mode dengan font lebih besar
                 hardware_mode = "GPU" if self.yolo_detector.use_gpu else "CPU"
                 hw_color = (0, 150, 0) if self.yolo_detector.use_gpu else (150, 150, 0)
-                cv2.putText(status_bar, hardware_mode, (center_x + 100, 22),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, hw_color, 1)
+                cv2.putText(status_bar, hardware_mode, (center_x + 150, 32),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, hw_color, 2)
 
-                # Confidence Threshold
+                # Confidence Threshold dengan font lebih besar
                 night_cameras = sum(1 for cam in self.cameras.values() if cam.get('night_mode', False))
                 if night_cameras > 0:
                     conf_text = f"Conf:{YOLO_CONFIG.get('confidence_threshold_night', 0.65):.2f}"
@@ -539,14 +524,14 @@ class ProfessionalSecuritySystem:
                 else:
                     conf_text = f"Conf:{YOLO_CONFIG.get('confidence_threshold', 0.55):.2f}"
                     conf_color = (200, 200, 100)
-                cv2.putText(status_bar, conf_text, (center_x + 150, 22),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.35, conf_color, 1)
+                cv2.putText(status_bar, conf_text, (center_x + 220, 32),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, conf_color, 2)
 
-                # RIGHT SECTION - Controls
-                right_x = display_frame.shape[1] - 450
+                # RIGHT SECTION - Controls dengan font HD
+                right_x = display_frame.shape[1] - 600
                 controls = "S:Screenshot | L:View | D:Detection | A:Security | ESC:Exit"
-                cv2.putText(status_bar, controls, (right_x, 22),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.35, (120, 120, 120), 1)
+                cv2.putText(status_bar, controls, (right_x, 32),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 120, 120), 2)
 
                 # WARNING - Only if security compromised (overlay on center)
                 if not self.security_manager.is_armed() or not (self.detection_enabled and self.yolo_detector.detection_enabled):
