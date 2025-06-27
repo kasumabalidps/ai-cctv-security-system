@@ -645,23 +645,31 @@ class SecurityManager:
         try:
             cleanup_days = RECORDING_CONFIG.get('cleanup_days', 7)
             cutoff_time = time.time() - (cleanup_days * 24 * 3600)
+            files_cleaned = 0
 
-            # Bersihkan alerts
+            # Bersihkan alerts dan recordings
             for dirname in ['alerts', 'recordings']:
-                if os.path.exists(dirname):
-                    for filename in os.listdir(dirname):
-                        filepath = os.path.join(dirname, filename)
+                if not os.path.exists(dirname):
+                    continue
+
+                for filename in os.listdir(dirname):
+                    filepath = os.path.join(dirname, filename)
+                    try:
                         if os.path.getctime(filepath) < cutoff_time:
                             os.remove(filepath)
-                            logger.debug(f"🗑️ Cleaned old file: {filename}")
+                            files_cleaned += 1
+                    except OSError:
+                        continue
 
-            # Bersihkan database
-            conn = sqlite3.connect('logs/security.db')
-            cursor = conn.cursor()
-            cutoff_date = datetime.fromtimestamp(cutoff_time).strftime('%Y-%m-%d %H:%M:%S')
-            cursor.execute('DELETE FROM security_events WHERE timestamp < ?', (cutoff_date,))
-            conn.commit()
-            conn.close()
+            # Bersihkan database entries lama
+            with sqlite3.connect('logs/security.db') as conn:
+                cursor = conn.cursor()
+                cutoff_date = datetime.fromtimestamp(cutoff_time).strftime('%Y-%m-%d %H:%M:%S')
+                cursor.execute('DELETE FROM security_events WHERE timestamp < ?', (cutoff_date,))
+                deleted_entries = cursor.rowcount
+
+            if files_cleaned > 0 or deleted_entries > 0:
+                logger.info(f"🗑️ Cleanup: {files_cleaned} files, {deleted_entries} DB entries (>{cleanup_days}d)")
 
         except Exception as e:
             logger.error(f"❌ Cleanup error: {e}")

@@ -39,8 +39,9 @@
 ### 📹 Professional Recording & Storage
 - **Auto Recording** saat deteksi (20 detik default)
 - **HD Screenshots** (1920x1080) dengan detection overlay
-- **Smart Storage Management** - Auto cleanup (7 hari default)
+- **Smart Storage Management** - Auto cleanup setiap jam (7 hari retention)
 - **Optimized Compression** - Hemat bandwidth dan storage
+- **File Organization** - Structured folders dengan timestamp naming
 
 ### 🖥️ HD Professional Interface
 - **Full HD Display** - 1920x1080 crystal clear interface
@@ -244,6 +245,39 @@ python main.py
 | 3-4 | 8GB | i5/Ryzen 5 | GTX 1060+ | 2-4GB |
 | 5-8 | 16GB | i7/Ryzen 7 | RTX 3060+ | 4-8GB |
 
+## 📁 File Management & Storage
+
+### Auto-Cleanup System
+- **Cleanup Frequency**: Setiap 1 jam background check
+- **Retention Period**: 7 hari untuk alerts dan recordings
+- **Target Folders**: `alerts/`, `recordings/`, dan database entries
+- **Smart Cleanup**: Hanya hapus file berdasarkan creation time
+
+### File Naming Convention
+```
+alerts/ALERT_{camera_name}_{alert_id}_{timestamp}.jpg
+recordings/REC_{camera_name}_{alert_id}_{timestamp}.mp4
+logs/security.db (SQLite database)
+```
+
+### Storage Optimization
+- **Compression Level**: 6 (high compression)
+- **Max File Size**: 100MB per recording
+- **Expected Usage**: 1-2GB per week (4 cameras)
+- **Database Size**: <10MB dengan regular cleanup
+
+### Manual Cleanup (Optional)
+```bash
+# Clean alerts older than 1 day
+find alerts/ -type f -mtime +1 -delete
+
+# Clean recordings older than 3 days
+find recordings/ -type f -mtime +3 -delete
+
+# Check database size
+ls -lh logs/security.db
+```
+
 ## 🔧 Troubleshooting
 
 ### Common Issues & Solutions
@@ -410,9 +444,10 @@ This project is licensed under the **MIT License** - see [LICENSE](LICENSE) file
 - Enable `cross_camera_dedup` untuk area dengan multiple cameras
 - Monitor RAM usage dan restart aplikasi setiap 24 jam
 
-**📊 MONITORING**:
+**📊 MONITORING & STORAGE**:
 - Check `logs/security.db` untuk audit trail
-- Monitor disk space untuk auto-cleanup
+- **Auto-cleanup**: Files > 7 hari otomatis terhapus (setiap jam)
+- **Storage management**: `alerts/` dan `recordings/` folder auto-maintained
 - Verify alert frequency tidak melebihi limits
 
 **🏠 HOME SECURITY**: Sistem ini dirancang khusus untuk **rumah di area traffic tinggi**. Konfigurasi default sudah dioptimasi untuk mengurangi spam alerts sambil tetap menjaga keamanan maksimal.
