@@ -86,6 +86,9 @@ alerts/*.png
 screenshots/*.jpg
 screenshots/*.png
 
+*.bat
+*.sh
+
 # Temporary files
 *.tmp
 *.temp
